@@ -2,6 +2,7 @@ package com.stepanov.bbf.bugfinder.executor.project
 
 import com.intellij.psi.PsiFile
 import com.stepanov.bbf.bugfinder.executor.CompilerArgs
+import com.stepanov.bbf.bugfinder.executor.addJmhMain
 import com.stepanov.bbf.bugfinder.executor.addMain
 import com.stepanov.bbf.bugfinder.executor.addMainForPerformanceTesting
 import com.stepanov.bbf.bugfinder.mutator.transformations.Factory
@@ -160,26 +161,16 @@ class Project(
         return args
     }
 
-    fun addMain(): Project {
-        if (files.map { it.text }.any { it.contains("fun main(") }) return Project(configuration, files, language)
-        val boxFuncs =
-            files.flatMap { it.psiFile.getAllPSIChildrenOfType<KtNamedFunction> { it.name?.contains("box") == true } }
-        if (boxFuncs.isEmpty()) return Project(configuration, files, language)
-        val indOfFile =
-            files.indexOfFirst {
-                it.psiFile.getAllPSIChildrenOfType<KtNamedFunction>().any { it.name?.contains("box") == true }
-            }
-        if (indOfFile == -1) return Project(configuration, files, language)
-        val file = files[indOfFile]
-        val psiCopy = file.psiFile.copy() as PsiFile
-        psiCopy.addMain(boxFuncs)
-        val newFirstFile = BBFFile(file.name, psiCopy)
-        val newFiles =
-            listOf(newFirstFile) + files.getAllWithout(indOfFile).map { BBFFile(it.name, it.psiFile.copy() as PsiFile) }
-        return Project(configuration, newFiles, language)
+    fun addMain(): Project = addToBox { file, boxFuncs -> file.addMain(boxFuncs) }
+
+    fun addMainAndExecBoxNTimes(times: Int): Project = addToBox {file, boxFuncs -> file.addMainForPerformanceTesting(boxFuncs, times)}
+
+    fun addJmhMain(): Project {
+        if (language != LANGUAGE.KOTLIN && language != LANGUAGE.KJAVA) throw IllegalStateException("Non-kotlin projects not supported")
+        return addToBox { file, boxFuncs ->  (file as KtFile).addJmhMain(boxFuncs)}
     }
 
-    fun addMainAndExecBoxNTimes(times: Int): Project {
+    private fun addToBox(callback: (file: PsiFile, boxFuncs: List<KtNamedFunction>) -> Unit): Project {
         if (files.map { it.text }.any { it.contains("fun main(") }) return Project(configuration, files, language)
         val boxFuncs =
             files.flatMap { it.psiFile.getAllPSIChildrenOfType<KtNamedFunction> { it.name?.contains("box") == true } }
@@ -191,7 +182,7 @@ class Project(
         if (indOfFile == -1) return Project(configuration, files, language)
         val file = files[indOfFile]
         val psiCopy = file.psiFile.copy() as PsiFile
-        psiCopy.addMainForPerformanceTesting(boxFuncs, times)
+        callback(psiCopy, boxFuncs)
         val newFirstFile = BBFFile(file.name, psiCopy)
         val newFiles =
             listOf(newFirstFile) + files.getAllWithout(indOfFile).map { BBFFile(it.name, it.psiFile.copy() as PsiFile) }

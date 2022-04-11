@@ -26,13 +26,18 @@ class KJCompiler(override val arguments: String = "") : JVMCompiler(arguments) {
 
     override var pathToCompiled: String = "tmp/tmp.jar"
 
-    override fun compile(project: Project, includeRuntime: Boolean): CompilationResult {
-        val projectWithMain = project.addMain()
+    override fun compile(project: Project, includeRuntime: Boolean): CompilationResult = doCompile(project, includeRuntime, false)
+
+    fun compileJmh(project: Project, includeRuntime: Boolean): CompilationResult = doCompile(project, includeRuntime, true)
+
+    private fun doCompile(project: Project, includeRuntime: Boolean, jmh: Boolean): CompilationResult {
+        val projectWithMain = if(jmh) project.addJmhMain() else project.addMain()
         val kotlinCompiled = super.compile(projectWithMain, includeRuntime)
         if (kotlinCompiled.status == -1) return CompilationResult(-1, "")
         val path = projectWithMain.saveOrRemoveToTmp(true)
         val kotlinJar = ZipFile(kotlinCompiled.pathToCompiled, Charset.forName("CP866"))
         kotlinJar.copyContentTo(pathToTmpDir)
+        if(jmh) commonExec("java -classpath ${classpath()} org.openjdk.jmh.generators.bytecode.JmhBytecodeGenerator $pathToTmpDir $pathToTmpDir $pathToTmpDir")
         val javaRes = compileJava(path, pathToTmpDir)
         File(kotlinCompiled.pathToCompiled).let { if (it.exists()) it.delete() }
         projectWithMain.saveOrRemoveToTmp(false)
@@ -59,13 +64,14 @@ class KJCompiler(override val arguments: String = "") : JVMCompiler(arguments) {
     }
 
     private fun compileJava(path: String, pathToDir: String): Boolean {
-        val javaFiles = path.split(" ").filter { it.endsWith(".java") }.map { File(it) }
+        val javaFiles = path.split(" ").filter { it.endsWith(".java") }.map { File(it) } + File(pathToDir).walkTopDown().toList().filter { it.extension == "java"}
         if (javaFiles.isEmpty()) return true
         val compiler = ToolProvider.getSystemJavaCompiler()
         val diagnostics = DiagnosticCollector<JavaFileObject>()
         val manager = compiler.getStandardFileManager(diagnostics, null, null)
         val sources = manager.getJavaFileObjectsFromFiles(javaFiles)
-        val classPath = (CompilerArgs.jvmStdLibPaths + CompilerArgs.getAnnoPath("13.0") + pathToDir).joinToString(":")
+        // TODO: Replace jvmStdLibPaths with classpath() everywhere?
+        val classPath = (CompilerArgs.jvmStdLibPaths + CompilerArgs.getAnnoPath("13.0") + pathToDir + classpath()).joinToString(":")
         val options = mutableListOf("-classpath", classPath, "-d", pathToDir)
         val task = compiler.getTask(null, manager, diagnostics, options, null, sources)
         task.call()

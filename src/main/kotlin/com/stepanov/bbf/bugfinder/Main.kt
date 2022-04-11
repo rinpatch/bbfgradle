@@ -17,8 +17,10 @@ fun main(args: Array<String>) {
         Logger.getLogger("reducerLogger").level = Level.OFF
         Logger.getLogger("transformationManagerLog").level = Level.OFF
     }
-    val file = File(CompilerArgs.baseDir).listFiles()?.filter { it.path.endsWith(".kt") }?.random() ?: exitProcess(0)
-    SingleFileBugFinder(file.absolutePath).findBugsInFile()
+    File(CompilerArgs.baseDir).listFiles()?.filter { it.path.endsWith("varargInJava1.kt") }?.forEach {
+        println(it.absolutePath)
+        SingleFileBugFinder(it.absolutePath).findBugsInFile()
+    }
     exitProcess(0)
 //    val results = mutableMapOf<String, Pair<Double, Double>>()
 //    var fl = false

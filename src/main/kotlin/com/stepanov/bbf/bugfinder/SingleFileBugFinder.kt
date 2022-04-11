@@ -2,7 +2,6 @@ package com.stepanov.bbf.bugfinder
 
 import com.stepanov.bbf.bugfinder.executor.CompilerArgs
 import com.stepanov.bbf.bugfinder.executor.checkers.CoverageGuider
-import com.stepanov.bbf.bugfinder.executor.checkers.MutationChecker
 import com.stepanov.bbf.bugfinder.executor.checkers.PerformanceOracle
 import com.stepanov.bbf.bugfinder.executor.compilers.JVMCompiler
 import com.stepanov.bbf.bugfinder.executor.compilers.KJCompiler
@@ -70,11 +69,21 @@ class SingleFileBugFinder(pathToFile: String) : BugFinder(pathToFile) {
             MyMethodBasedCoverage.methodProbes.clear()
         }
         if (CompilerArgs.isPerformanceMode) {
-            PerformanceOracle.init(project, CompilerArgs.getCompilersList())
+                if(CompilerArgs.getCompilersList().all { it.javaClass == JVMCompiler::class.java }) {
+                    val jvmCompilers = CompilerArgs.getCompilersList().map { it as JVMCompiler }
+                    PerformanceOracle.profileProject(project, jvmCompilers)
+                } else {
+                    log.error("Performance mode only supports JVMCompiler for now.")
+                    exitProcess(1)
+                }
         }
-        //noLastLambdaInFinallyBlock temporary for avoiding duplicates bugs
-        mutate(project, project.files.first(), compilers, listOf(::noBoxFunModifying, ::noLastLambdaInFinallyBlock))
-        exitProcess(0)
+
+        // Temporary, just testing all original tests in performance mode right now
+        if (!CompilerArgs.isPerformanceMode) {
+            //noLastLambdaInFinallyBlock temporary for avoiding duplicates bugs
+            mutate(project, project.files.first(), compilers, listOf(::noBoxFunModifying, ::noLastLambdaInFinallyBlock))
+            exitProcess(0)
+        }
 //            //Save mutated file
 //            if (CompilerArgs.shouldSaveMutatedFiles) {
 //                val pathToNewTests = CompilerArgs.dirForNewTests

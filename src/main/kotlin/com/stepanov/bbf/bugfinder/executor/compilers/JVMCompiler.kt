@@ -23,6 +23,7 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
 import java.util.jar.JarInputStream
 import java.util.jar.JarOutputStream
+import javax.tools.ToolProvider
 
 open class JVMCompiler(override val arguments: String = "") : CommonCompiler() {
     override val compilerInfo: String
@@ -48,6 +49,28 @@ open class JVMCompiler(override val arguments: String = "") : CommonCompiler() {
         val projectWithMainFun = project.addMainAndExecBoxNTimes(numberOfExecutions)
         return getCompilationResult(projectWithMainFun, includeRuntime)
     }
+
+/*
+    fun compileJmh(project: Project, includeRuntime: Boolean = true): CompilationResult {
+        val projectWithMainFun = project.addJmhMain()
+        val compilationDir = "tmp/benchmark_tmp"
+        // First, regular compile
+        val args = prepareArgs(projectWithMainFun, projectWithMainFun.saveOrRemoveToTmp(true), compilationDir)
+        val regularStatus = executeCompiler(projectWithMainFun, args)
+        if (regularStatus.hasException || regularStatus.hasTimeout || !regularStatus.isCompileSuccess) return CompilationResult(
+            -1,
+            ""
+        )
+        // Then, generate jmh benchmark code with jmh bytecode generator
+        commonExec("java -classpath ${classpath()} org.openjdk.jmh.generators.bytecode.JmhBytecodeGenerator $compilationDir $compilationDir $compilationDir")
+        // Finally, compile the generated jmh benchmark code and assemble a jar
+        val compilationUnits = File(compilationDir).walkTopDown().toList().filter { it.extension == "java" }.map { it.path }
+        val javacStatus = ToolProvider.getSystemJavaCompiler().run(null, null, null, "-classpath",  "$compilationDir:${classpath()}", *compilationUnits.toTypedArray())
+        if (javacStatus != 0) return CompilationResult(-1, "")
+        commonExec("jar cf $pathToCompiled -C $compilationDir .")
+        return CompilationResult(0, pathToCompiled)
+    }
+*/
 
     override fun compile(project: Project, includeRuntime: Boolean): CompilationResult {
         val projectWithMainFun = project.addMain()
@@ -84,14 +107,7 @@ open class JVMCompiler(override val arguments: String = "") : CommonCompiler() {
                 "$path $arguments -d $destination".split(" ")
         projectArgs.apply { K2JVMCompiler().parseArguments(compilerArgs.toTypedArray(), this) }
         //projectArgs.compileJava = true
-        projectArgs.classpath =
-            "${CompilerArgs.jvmStdLibPaths.joinToString(
-                separator = ":"
-            )}:${System.getProperty("java.class.path")}"
-                .split(":")
-                .filter { it.isNotEmpty() }
-                .toSet().toList()
-                .joinToString(":")
+        projectArgs.classpath = classpath()
         projectArgs.jvmTarget = "1.8"
         projectArgs.optIn = arrayOf("kotlin.ExperimentalStdlibApi", "kotlin.contracts.ExperimentalContracts")
         if (project.configuration.jvmDefault.isNotEmpty())
@@ -103,6 +119,16 @@ open class JVMCompiler(override val arguments: String = "") : CommonCompiler() {
         //}
         return projectArgs
     }
+
+    fun classpath() = "${
+        CompilerArgs.jvmStdLibPaths.joinToString(
+            separator = ":"
+        )
+    }:${System.getProperty("java.class.path")}"
+        .split(":")
+        .filter { it.isNotEmpty() }
+        .toSet().toList()
+        .joinToString(":")
 
     private fun executeCompiler(project: Project, args: K2JVMCompilerArguments): KotlincInvokeStatus {
         val compiler = K2JVMCompiler()
@@ -157,7 +183,7 @@ open class JVMCompiler(override val arguments: String = "") : CommonCompiler() {
         val mc =
             mainClass.ifEmpty { JarInputStream(File(path).inputStream()).manifest.mainAttributes.getValue("Main-class") }
         return commonExec(
-            "java -classpath ${CompilerArgs.jvmStdLibPaths.joinToString(":")}:$path $mc",
+            "java -classpath ${classpath()}:$path $mc",
             streamType
         )
     }
