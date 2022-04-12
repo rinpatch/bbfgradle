@@ -46,7 +46,6 @@ fun KtFile.addJmhMain(boxFuncs: List<KtNamedFunction>) {
     val boxFun = boxFuncs.first()
     this.addImport("org.openjdk.jmh.annotations", true)
 
-    this.addToTheTop(KtPsiFactory(this.project).createPackageDirective(FqName("benchmark")))
     val benchClass = """\n
         open class MyBench {
             @Benchmark

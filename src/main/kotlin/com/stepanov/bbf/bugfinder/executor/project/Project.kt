@@ -1,6 +1,8 @@
 package com.stepanov.bbf.bugfinder.executor.project
 
+import com.intellij.psi.PsiElementFactory
 import com.intellij.psi.PsiFile
+import com.intellij.psi.PsiJavaFile
 import com.stepanov.bbf.bugfinder.executor.CompilerArgs
 import com.stepanov.bbf.bugfinder.executor.addJmhMain
 import com.stepanov.bbf.bugfinder.executor.addMain
@@ -14,9 +16,11 @@ import org.jetbrains.kotlin.cli.common.arguments.K2JSCompilerArguments
 import org.jetbrains.kotlin.cli.common.arguments.K2JVMCompilerArguments
 import org.jetbrains.kotlin.cli.js.K2JSCompiler
 import org.jetbrains.kotlin.cli.jvm.K2JVMCompiler
+import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.psi.KtNamedFunction
 import java.io.File
 import org.jetbrains.kotlin.psi.KtFile
+import org.jetbrains.kotlin.psi.KtPsiFactory
 
 class Project(
     var configuration: Header,
@@ -167,7 +171,29 @@ class Project(
 
     fun addJmhMain(): Project {
         if (language != LANGUAGE.KOTLIN && language != LANGUAGE.KJAVA) throw IllegalStateException("Non-kotlin projects not supported")
-        return addToBox { file, boxFuncs ->  (file as KtFile).addJmhMain(boxFuncs)}
+        val newProject = addToBox { file, boxFuncs ->
+            (file as KtFile).addJmhMain(boxFuncs)
+        }
+        val newFiles = newProject.files.map {
+            when (it.psiFile) {
+                is KtFile -> if ((it.psiFile as KtFile).packageFqName.isRoot) {
+                    val psiCopy = it.psiFile.copy() as KtFile
+                    psiCopy.addToTheTop(KtPsiFactory(psiCopy.project).createPackageDirective(FqName("benchmark")))
+                    BBFFile(it.name, psiCopy)
+                } else {
+                    it
+                }
+                is PsiJavaFile -> if((it.psiFile as PsiJavaFile).packageName == "") {
+                   val psiCopy = it.psiFile.copy() as PsiJavaFile
+                   psiCopy.addToTheTop(PsiElementFactory.getInstance(psiCopy.project).createPackageStatement("benchmark"))
+                    BBFFile(it.name, psiCopy)
+                } else {
+                    it
+                }
+                else -> it
+            }
+        }
+        return Project(configuration, newFiles, language)
     }
 
     private fun addToBox(callback: (file: PsiFile, boxFuncs: List<KtNamedFunction>) -> Unit): Project {
