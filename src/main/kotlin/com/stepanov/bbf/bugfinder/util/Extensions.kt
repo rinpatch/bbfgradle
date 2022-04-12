@@ -422,11 +422,9 @@ fun PsiFile.addAtTheEnd(psiElement: PsiElement): PsiElement {
 
 
 fun PsiFile.addToTheTop(psiElement: PsiElement): PsiElement {
-    val firstChild = this.allChildren.first!!
-    firstChild.add(Factory.psiFactory.createWhiteSpace("\n"))
-    val res = firstChild.add(psiElement)
-    firstChild.add(Factory.psiFactory.createWhiteSpace("\n"))
-    return res
+    this.addBefore(Factory.psiFactory.createWhiteSpace("\n"), this.allChildren.first!!)
+    this.addBefore(psiElement, this.allChildren.first!!)
+    return psiElement
 }
 
 fun KtFile.addImport(import: String, isAllUnder: Boolean) {
