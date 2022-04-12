@@ -30,7 +30,6 @@ object PerformanceOracle {
             val executor = DefaultExecutor().also {
                 it.streamHandler = PumpStreamHandler(outputStream)
             }
-            executor.streamHandler.stop()
             // TODO?: Replace /dev/null, /dev/stdout with something platform independent?
             val commandLine = CommandLine.parse("java -cp ${compilationResult.pathToCompiled}:${compiler.classpath()} org.openjdk.jmh.Main -r 1 -w 1 -f 1 -rf json -rff /dev/stdout -o /dev/null -tu ns -bm avgt")
             val execResult = executor.execute(commandLine)

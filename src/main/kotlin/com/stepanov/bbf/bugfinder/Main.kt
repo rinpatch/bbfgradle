@@ -17,7 +17,7 @@ fun main(args: Array<String>) {
         Logger.getLogger("reducerLogger").level = Level.OFF
         Logger.getLogger("transformationManagerLog").level = Level.OFF
     }
-    File(CompilerArgs.baseDir).listFiles()?.filter { it.path.endsWith("varargInJava1.kt") }?.forEach {
+    File(CompilerArgs.baseDir).listFiles()?.filter { it.path.endsWith(".kt") }?.forEach {
         println(it.absolutePath)
         SingleFileBugFinder(it.absolutePath).findBugsInFile()
     }
