@@ -171,9 +171,14 @@ class Project(
 
     fun addJmhMain(): Project {
         if (language != LANGUAGE.KOTLIN && language != LANGUAGE.KJAVA) throw IllegalStateException("Non-kotlin projects not supported")
+        var boxFile: KtFile? = null
         val newProject = addToBox { file, boxFuncs ->
             (file as KtFile).addJmhMain(boxFuncs)
+            boxFile = file
         }
+        // JMH requires the benchmarked class to have a package.
+        // If the file already has one, do nothing, otherwise add a package to all files that don't have one.
+       if (!boxFile!!.packageFqName.isRoot) return newProject
         val newFiles = newProject.files.map {
             when (it.psiFile) {
                 is KtFile -> if ((it.psiFile as KtFile).packageFqName.isRoot) {
