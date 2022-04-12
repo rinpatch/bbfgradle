@@ -204,13 +204,13 @@ class Project(
     private fun addToBox(callback: (file: PsiFile, boxFuncs: List<KtNamedFunction>) -> Unit): Project {
         if (files.map { it.text }.any { it.contains("fun main(") }) return Project(configuration, files, language)
         val boxFuncs = files.flatMap { file ->
-            file.psiFile.getAllChildrenOfCurLevel().filter {it is KtNamedFunction && it.name?.contains("box") ?: false}.map {it as KtNamedFunction}
+            file.psiFile.getAllChildrenOfCurLevel().filter {it is KtNamedFunction && it.name?.startsWith("box") ?: false}.map {it as KtNamedFunction}
         }
 
         if (boxFuncs.isEmpty()) return Project(configuration, files, language)
         val indOfFile =
             files.indexOfFirst { file ->
-                file.psiFile.getAllChildrenOfCurLevel().any {it is KtNamedFunction && it.name?.contains("box") ?: false}
+                file.psiFile.getAllChildrenOfCurLevel().any {it is KtNamedFunction && it.name?.startsWith("box") ?: false}
             }
         if (indOfFile == -1) return Project(configuration, files, language)
         val file = files[indOfFile]
