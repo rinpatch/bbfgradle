@@ -9,3 +9,4 @@ tmp/*.kt
 tmp/*.js
 java-agent/.gradle
 java-agent/build
+bugsPerMinute.txt
