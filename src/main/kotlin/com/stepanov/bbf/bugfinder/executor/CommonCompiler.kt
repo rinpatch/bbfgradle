@@ -64,7 +64,9 @@ abstract class CommonCompiler {
         return checkCompiling(Project.createFromCode(text))
     }
 
-    fun commonExec(command: String, streamType: Stream = Stream.INPUT, timeoutSec: Long = 5L): String {
+    fun commonExec(command: String, streamType: Stream = Stream.INPUT, timeoutSec: Long = 5L): String = commonExecWithStatus(command, streamType, timeoutSec).second
+
+    fun commonExecWithStatus(command: String, streamType: Stream = Stream.INPUT, timeoutSec: Long = 5L): Pair<Int, String> {
         val cmdLine = CommandLine.parse(command)
         val outputStream = ByteArrayOutputStream()
         val errorStream = ByteArrayOutputStream()
@@ -72,6 +74,7 @@ abstract class CommonCompiler {
             it.watchdog = ExecuteWatchdog(timeoutSec * 1000)
             it.streamHandler = PumpStreamHandler(outputStream, errorStream)
         }
+        val exitValue =
         try {
             executor.execute(cmdLine)
         } catch (e: ExecuteException) {
@@ -84,10 +87,10 @@ abstract class CommonCompiler {
             if (errorStream.toString().isEmpty() || errorStream.toString().contains("StackOverflow", true)) {
                 streamOutput = "Exception timeout"
             }
-            return streamOutput
+            return e.exitValue to streamOutput
             //return outputStream.toString()
         }
-        return when (streamType) {
+        return exitValue to when (streamType) {
             Stream.INPUT -> outputStream.toString()
             Stream.ERROR -> errorStream.toString()
             Stream.BOTH -> "OUTPUTSTREAM:\n$outputStream ERRORSTREAM:\n$errorStream"

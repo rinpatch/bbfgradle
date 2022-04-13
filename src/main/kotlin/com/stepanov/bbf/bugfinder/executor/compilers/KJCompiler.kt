@@ -5,6 +5,7 @@ import com.stepanov.bbf.bugfinder.executor.CompilerArgs
 import com.stepanov.bbf.bugfinder.executor.CompilationResult
 import com.stepanov.bbf.bugfinder.executor.project.Project
 import com.stepanov.bbf.bugfinder.util.Stream
+import org.apache.log4j.Logger
 import java.io.File
 import java.io.FileOutputStream
 import java.nio.charset.Charset
@@ -39,7 +40,11 @@ class KJCompiler(override val arguments: String = "") : JVMCompiler(arguments) {
         kotlinJar.copyContentTo(pathToTmpDir)
         var javaRes = compileJava(path, pathToTmpDir)
         if(javaRes && jmh) {
-            commonExec("java -classpath ${classpath()} org.openjdk.jmh.generators.bytecode.JmhBytecodeGenerator $pathToTmpDir $pathToTmpDir $pathToTmpDir")
+            val (exitCode, errors) = commonExecWithStatus("java -classpath ${classpath()} org.openjdk.jmh.generators.bytecode.JmhBytecodeGenerator $pathToTmpDir $pathToTmpDir $pathToTmpDir", Stream.ERROR)
+            if (exitCode != 0) {
+                Logger.getLogger("compilerErrorsLog").error("JMH generator failed with ${errors}")
+                return CompilationResult(-1, "")
+            }
             javaRes = compileJava(path, pathToTmpDir)
         }
         File(kotlinCompiled.pathToCompiled).let { if (it.exists()) it.delete() }
