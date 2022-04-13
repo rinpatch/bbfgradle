@@ -165,9 +165,15 @@ class Project(
         return args
     }
 
-    fun addMain(): Project = addToBox { file, boxFuncs -> file.addMain(boxFuncs) }
+    fun addMain(): Project {
+        if (files.map { it.text }.any { it.contains("fun main(") }) return this
+        return addToBox { file, boxFuncs -> file.addMain(boxFuncs) }
+    }
 
-    fun addMainAndExecBoxNTimes(times: Int): Project = addToBox {file, boxFuncs -> file.addMainForPerformanceTesting(boxFuncs, times)}
+    fun addMainAndExecBoxNTimes(times: Int): Project {
+        if (files.map { it.text }.any { it.contains("fun main(") }) return this
+        return addToBox { file, boxFuncs -> file.addMainForPerformanceTesting(boxFuncs, times) }
+    }
 
     fun addJmhMain(): Project {
         if (language != LANGUAGE.KOTLIN && language != LANGUAGE.KJAVA) throw IllegalStateException("Non-kotlin projects not supported")
@@ -203,7 +209,6 @@ class Project(
     }
 
     private fun addToBox(callback: (file: PsiFile, boxFuncs: List<KtNamedFunction>) -> Unit): Project {
-        if (files.map { it.text }.any { it.contains("fun main(") }) return Project(configuration, files, language)
         val boxFuncs = files.flatMap { file ->
             file.psiFile.getAllChildrenOfCurLevel().filter {it is KtNamedFunction && it.name?.startsWith("box") ?: false}.map {it as KtNamedFunction}
         }
