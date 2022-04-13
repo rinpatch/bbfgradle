@@ -82,7 +82,10 @@ open class JVMCompiler(override val arguments: String = "") : CommonCompiler() {
         val tmpJar = "$pathToCompiled.jar"
         val args = prepareArgs(projectWithMainFun, path, tmpJar)
         val status = executeCompiler(projectWithMainFun, args)
-        if (status.hasException || status.hasTimeout || !status.isCompileSuccess) return CompilationResult(-1, "")
+        if (status.hasException || status.hasTimeout || !status.isCompileSuccess) {
+            logger.info("JVMCompiler failed to compile Kotlin files: ${projectWithMainFun.files.map {it.name}}\n Error: ${status.combinedOutput}")
+            return CompilationResult(-1, "")
+        }
         val res = File(pathToCompiled)
         val input = JarInputStream(File(tmpJar).inputStream())
         val output = JarOutputStream(res.outputStream(), input.manifest)

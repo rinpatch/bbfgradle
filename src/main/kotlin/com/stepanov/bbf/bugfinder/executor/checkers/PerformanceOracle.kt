@@ -8,6 +8,7 @@ import org.apache.commons.exec.CommandLine
 import org.apache.commons.exec.DefaultExecutor
 import org.apache.commons.exec.ExecuteException
 import org.apache.commons.exec.PumpStreamHandler
+import org.apache.log4j.Logger
 import java.io.ByteArrayOutputStream
 
 
@@ -19,6 +20,8 @@ object PerformanceOracle {
     lateinit var executionConfInterval: Pair<Double, Double>
     var executionSigma: Double = -1.0
 
+    private val logger: Logger = Logger.getLogger("performanceOracleLog")
+
     fun profileProject(project: Project, compilers: List<JVMCompiler>): Pair<Double, Double>? {
        println("EXECUTUION INITIALIZATION")
 
@@ -26,7 +29,10 @@ object PerformanceOracle {
             // JMH generates java comde, so
             val kjCompiler = if (compiler !is KJCompiler) KJCompiler(compiler.arguments) else compiler
            val compilationResult = kjCompiler.compileJmh(project, false)
-           if (compilationResult.status != 0) throw Exception("Project ${project.files} does not compile with ${compiler.arguments}")
+           if (compilationResult.status != 0)  {
+              logger.error("Project does not compile with KJCompiler, args: ${compiler.arguments}, project:\n $project")
+               return null
+           }
             val outputStream = ByteArrayOutputStream()
             val errorStream = ByteArrayOutputStream()
             val executor = DefaultExecutor().also {

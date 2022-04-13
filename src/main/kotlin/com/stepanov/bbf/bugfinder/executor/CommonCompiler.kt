@@ -4,6 +4,7 @@ import com.stepanov.bbf.bugfinder.executor.project.Project
 import com.stepanov.bbf.bugfinder.util.Stream
 import com.stepanov.bbf.reduktor.executor.KotlincInvokeStatus
 import org.apache.commons.exec.*
+import org.apache.log4j.Logger
 import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSourceLocation
 import java.io.ByteArrayOutputStream
 
@@ -26,6 +27,8 @@ abstract class CommonCompiler {
 
     abstract val compilerInfo: String
     abstract var pathToCompiled: String
+
+    val logger: Logger = Logger.getLogger("compilerErrorsLog")
 
     fun getErrorMessage(project: Project): String = getErrorMessageWithLocation(project).first
     fun getErrorMessageForText(text: String): String = getErrorMessageForTextWithLocation(text).first

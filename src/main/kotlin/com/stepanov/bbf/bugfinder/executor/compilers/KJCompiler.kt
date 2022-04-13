@@ -42,7 +42,7 @@ class KJCompiler(override val arguments: String = "") : JVMCompiler(arguments) {
         if(javaRes && jmh) {
             val (exitCode, errors) = commonExecWithStatus("java -classpath ${classpath()} org.openjdk.jmh.generators.bytecode.JmhBytecodeGenerator $pathToTmpDir $pathToTmpDir $pathToTmpDir", Stream.ERROR)
             if (exitCode != 0) {
-                Logger.getLogger("compilerErrorsLog").error("JMH generator failed with ${errors}")
+                logger.error("JMH generator failed. Error:\n${errors}")
                 return CompilationResult(-1, "")
             }
             javaRes = compileJava(path, pathToTmpDir)
