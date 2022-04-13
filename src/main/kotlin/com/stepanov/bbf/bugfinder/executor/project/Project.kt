@@ -178,7 +178,7 @@ class Project(
     fun addJmhMain(): Project {
         if (language != LANGUAGE.KOTLIN && language != LANGUAGE.KJAVA) throw IllegalStateException("Non-kotlin projects not supported")
         var boxFile: KtFile? = null
-        val newProject = addToBox { file, boxFuncs ->
+        val newProject = addToBox (true) { file, boxFuncs ->
             (file as KtFile).addJmhMain(boxFuncs)
             boxFile = file
         }
@@ -208,15 +208,23 @@ class Project(
         return Project(configuration, newFiles, language)
     }
 
-    private fun addToBox(callback: (file: PsiFile, boxFuncs: List<KtNamedFunction>) -> Unit): Project {
+    private fun addToBox(
+        exactMatch: Boolean = false,
+        callback: (file: PsiFile, boxFuncs: List<KtNamedFunction>) -> Unit
+    ): Project {
+        val matchFun = if (exactMatch) { namedFun: KtNamedFunction -> namedFun.name == "box" }
+        else { namedFun: KtNamedFunction -> namedFun.name?.startsWith("box") ?: false }
+
         val boxFuncs = files.flatMap { file ->
-            file.psiFile.getAllChildrenOfCurLevel().filter {it is KtNamedFunction && it.name?.startsWith("box") ?: false}.map {it as KtNamedFunction}
+            file.psiFile.getAllChildrenOfCurLevel().filter { it is KtNamedFunction && matchFun(it) }
+                .map { it as KtNamedFunction }
         }
 
         if (boxFuncs.isEmpty()) return Project(configuration, files, language)
         val indOfFile =
             files.indexOfFirst { file ->
-                file.psiFile.getAllChildrenOfCurLevel().any {it is KtNamedFunction && it.name?.startsWith("box") ?: false}
+                file.psiFile.getAllChildrenOfCurLevel()
+                    .any { it is KtNamedFunction && matchFun(it)}
             }
         if (indOfFile == -1) return Project(configuration, files, language)
         val file = files[indOfFile]
