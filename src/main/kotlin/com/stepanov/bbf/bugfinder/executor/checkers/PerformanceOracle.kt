@@ -6,6 +6,7 @@ import com.stepanov.bbf.bugfinder.executor.compilers.KJCompiler
 import com.stepanov.bbf.bugfinder.executor.project.Project
 import org.apache.commons.exec.CommandLine
 import org.apache.commons.exec.DefaultExecutor
+import org.apache.commons.exec.ExecuteException
 import org.apache.commons.exec.PumpStreamHandler
 import java.io.ByteArrayOutputStream
 
@@ -27,13 +28,18 @@ object PerformanceOracle {
            val compilationResult = kjCompiler.compileJmh(project, false)
            if (compilationResult.status != 0) throw Exception("Project ${project.files} does not compile with ${compiler.arguments}")
             val outputStream = ByteArrayOutputStream()
+            val errorStream = ByteArrayOutputStream()
             val executor = DefaultExecutor().also {
-                it.streamHandler = PumpStreamHandler(outputStream)
+                it.streamHandler = PumpStreamHandler(outputStream, errorStream)
             }
             // TODO?: Replace /dev/null, /dev/stdout with something platform independent?
             val commandLine = CommandLine.parse("java -cp ${compilationResult.pathToCompiled}:${compiler.classpath()} org.openjdk.jmh.Main -r 1 -w 1 -f 1 -rf json -rff /dev/stdout -o /dev/null -tu ns -bm avgt")
-            val execResult = executor.execute(commandLine)
-            if (execResult != 0) throw Exception("Project ${project.files}, JMH fail")
+            try {
+                executor.execute(commandLine)
+            } catch (e: ExecuteException) {
+                println(errorStream.toString())
+                throw e
+            }
             println(outputStream.toString())
         }
 

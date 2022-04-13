@@ -42,7 +42,7 @@ fun PsiFile.addMainForPerformanceTesting(boxFuncs: List<KtNamedFunction>, times:
 }
 
 fun KtFile.addJmhMain(boxFuncs: List<KtNamedFunction>) {
-    if (boxFuncs.size != 1) throw IllegalStateException("Assuming only one box fun per project for now")
+    if (boxFuncs.size != 1) throw IllegalStateException("Assuming only one box fun per project")
     val boxFun = boxFuncs.first()
     this.addImport("org.openjdk.jmh.annotations", true)
 

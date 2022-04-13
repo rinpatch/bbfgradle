@@ -37,8 +37,11 @@ class KJCompiler(override val arguments: String = "") : JVMCompiler(arguments) {
         val path = projectWithMain.saveOrRemoveToTmp(true)
         val kotlinJar = ZipFile(kotlinCompiled.pathToCompiled, Charset.forName("CP866"))
         kotlinJar.copyContentTo(pathToTmpDir)
-        if(jmh) commonExec("java -classpath ${classpath()} org.openjdk.jmh.generators.bytecode.JmhBytecodeGenerator $pathToTmpDir $pathToTmpDir $pathToTmpDir")
-        val javaRes = compileJava(path, pathToTmpDir)
+        var javaRes = compileJava(path, pathToTmpDir)
+        if(javaRes && jmh) {
+            commonExec("java -classpath ${classpath()} org.openjdk.jmh.generators.bytecode.JmhBytecodeGenerator $pathToTmpDir $pathToTmpDir $pathToTmpDir")
+            javaRes = compileJava(path, pathToTmpDir)
+        }
         File(kotlinCompiled.pathToCompiled).let { if (it.exists()) it.delete() }
         projectWithMain.saveOrRemoveToTmp(false)
         return if (javaRes) {
