@@ -179,23 +179,24 @@ class Project(
         // JMH requires the benchmarked class to have a package.
         // If the file already has one, do nothing, otherwise add a package to all files that don't have one.
        if (!boxFile!!.packageFqName.isRoot) return newProject
-        val newFiles = newProject.files.map {
-            when (it.psiFile) {
-                is KtFile -> if ((it.psiFile as KtFile).packageFqName.isRoot) {
-                    val psiCopy = it.psiFile.copy() as KtFile
-                    psiCopy.addToTheTop(KtPsiFactory(psiCopy.project).createPackageDirective(FqName("benchmark")))
-                    BBFFile(it.name, psiCopy)
+        val newFiles = newProject.files.map { file ->
+            when (file.psiFile) {
+                is KtFile -> if ((file.psiFile as KtFile).packageFqName.isRoot) {
+                    val psiCopy = file.psiFile.copy() as KtFile
+                    val packageDirective = KtPsiFactory(psiCopy.project).createPackageDirective(FqName("benchmark"))
+                    psiCopy.packageDirective!!.addAfterThisWithWhitespace(packageDirective, "\n")
+                    BBFFile(file.name, psiCopy)
                 } else {
-                    it
+                    file
                 }
-                is PsiJavaFile -> if((it.psiFile as PsiJavaFile).packageName == "") {
-                   val psiCopy = it.psiFile.copy() as PsiJavaFile
+                is PsiJavaFile -> if((file.psiFile as PsiJavaFile).packageName == "") {
+                   val psiCopy = file.psiFile.copy() as PsiJavaFile
                    psiCopy.addToTheTop(PsiElementFactory.getInstance(psiCopy.project).createPackageStatement("benchmark"))
-                    BBFFile(it.name, psiCopy)
+                    BBFFile(file.name, psiCopy)
                 } else {
-                    it
+                    file
                 }
-                else -> it
+                else -> file
             }
         }
         return Project(configuration, newFiles, language)
