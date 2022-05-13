@@ -1,6 +1,9 @@
 package com.stepanov.bbf.bugfinder
 
 import com.stepanov.bbf.bugfinder.executor.CompilerArgs
+import com.stepanov.bbf.bugfinder.executor.checkers.CompilationChecker
+import com.stepanov.bbf.bugfinder.executor.compilers.KJCompiler
+import com.stepanov.bbf.bugfinder.executor.project.Project
 import org.apache.log4j.Level
 import org.apache.log4j.Logger
 import org.apache.log4j.PropertyConfigurator
@@ -17,9 +20,27 @@ fun main(args: Array<String>) {
         Logger.getLogger("reducerLogger").level = Level.OFF
         Logger.getLogger("transformationManagerLog").level = Level.OFF
     }
-    File(CompilerArgs.baseDir).listFiles()?.filter { it.path.endsWith(".kt") }?.forEach {
-        println(it.absolutePath)
-        SingleFileBugFinder(it.absolutePath).findBugsInFile()
+    val files = File(CompilerArgs.baseDir).listFiles()!!.filter { it.path.endsWith(".kt") }.filterNot {
+        // Compiler bug
+       it.name == "kt48440_2.kt" ||
+        // Does not compile with old backend
+       it.name == "multifileEqHc.kt"
+    }
+    val startFrom = File("tmp/stoppedAt").let {
+        if (it.exists()) it.readText().trim()
+        else files.first().absolutePath
+    }
+    val startIndex = files.indexOfFirst {it.absolutePath == startFrom}
+    println(files[startIndex + 1].name)
+    println("Starting from $startFrom")
+    files.slice(startIndex..files.lastIndex).withIndex().forEach { (index, file) ->
+        println("${file.absolutePath} ${index}/${files.lastIndex - startIndex}")
+        File("tmp/stoppedAt").writeText(file.absolutePath)
+        SingleFileBugFinder(file.absolutePath).findBugsInFile()
+        File(KJCompiler().pathToTmpDir).deleteRecursively()
+//        val p = Project.createFromCode(file.readText())
+//        val checker = CompilationChecker(listOf(KJCompiler(), KJCompiler("-Xuse-old-backend")))
+//        checker.checkCompilingWithBugSaving(p)
     }
     exitProcess(0)
 //    val results = mutableMapOf<String, Pair<Double, Double>>()

@@ -5,13 +5,12 @@ import com.stepanov.bbf.bugfinder.executor.compilers.JVMCompiler
 import com.stepanov.bbf.bugfinder.executor.compilers.KJCompiler
 import com.stepanov.bbf.bugfinder.executor.project.Project
 import kotlinx.serialization.json.*
-import org.apache.commons.exec.CommandLine
-import org.apache.commons.exec.DefaultExecutor
-import org.apache.commons.exec.ExecuteException
-import org.apache.commons.exec.PumpStreamHandler
+import org.apache.commons.exec.*
 import org.apache.log4j.Logger
 import java.io.ByteArrayOutputStream
 import java.io.File
+import java.nio.file.Files
+import java.nio.file.Path
 
 
 object PerformanceOracle {
@@ -24,7 +23,7 @@ object PerformanceOracle {
 
     private val logger: Logger = Logger.getLogger("performanceOracleLog")
 
-    fun profileProject(project: Project, compilers: List<JVMCompiler>): List<Double>? {
+    fun profileProject(project: Project, compilers: List<JVMCompiler>, dir: String = ""): List<Double>? {
         println("EXECUTUION INITIALIZATION")
         val executionTimes = compilers.map { compiler ->
             // JMH generates java code, so
@@ -38,6 +37,7 @@ object PerformanceOracle {
             val errorStream = ByteArrayOutputStream()
             val executor = DefaultExecutor().also {
                 it.streamHandler = PumpStreamHandler(null, errorStream)
+                it.watchdog = ExecuteWatchdog(20 * 1000)
             }
             val tempFile = File.createTempFile("bbf-performance-oracle", null)
             val commandLine =
@@ -45,6 +45,10 @@ object PerformanceOracle {
 //            val commandLine = CommandLine.parse("java -cp ${compilationResult.pathToCompiled}:${compiler.classpath()} org.openjdk.jmh.Main -r 0 -w 0 -f 1 -rf json -rff ${tempFile.absolutePath} -tu ns -bm avgt")
             try {
                 executor.execute(commandLine)
+                val benchName = File(dir).name
+                File("results/$benchName").mkdir()
+//                Files.createDirectory(Path.of("result", benchName))
+                File("results/$benchName/${compiler.compilerInfo}.json").writeText(tempFile.readText())
                 Json.parseToJsonElement(tempFile.readText())
                     .jsonArray
                     .firstOrNull()
@@ -54,8 +58,9 @@ object PerformanceOracle {
                     ?.double
                     ?: return null
             } catch (e: ExecuteException) {
+                executor.watchdog.destroyProcess()
                 logger.error("JMH execution failed with the following stderr:\n ${errorStream.toString()}")
-                throw e
+                return null
             } finally {
                 tempFile.delete()
             }

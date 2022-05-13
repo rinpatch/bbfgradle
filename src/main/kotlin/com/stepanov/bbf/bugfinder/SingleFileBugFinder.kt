@@ -71,7 +71,8 @@ class SingleFileBugFinder(pathToFile: String) : BugFinder(pathToFile) {
         if (CompilerArgs.isPerformanceMode) {
                 if(CompilerArgs.getCompilersList().all { it.javaClass == JVMCompiler::class.java }) {
                     val jvmCompilers = CompilerArgs.getCompilersList().map { it as JVMCompiler }
-                    PerformanceOracle.profileProject(project, jvmCompilers)
+                    val times = PerformanceOracle.profileProject(project, jvmCompilers, dir)
+                    println(times)
                 } else {
                     log.error("Performance mode only supports JVMCompiler for now.")
                     exitProcess(1)

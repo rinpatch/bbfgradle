@@ -5,6 +5,7 @@ import com.intellij.psi.PsiFile
 import com.stepanov.bbf.bugfinder.executor.COMPILE_STATUS
 import com.stepanov.bbf.bugfinder.executor.CommonCompiler
 import com.stepanov.bbf.bugfinder.executor.CompilerArgs
+import com.stepanov.bbf.bugfinder.executor.compilers.JVMCompiler
 import com.stepanov.bbf.bugfinder.executor.project.BBFFile
 import com.stepanov.bbf.bugfinder.executor.project.LANGUAGE
 import com.stepanov.bbf.bugfinder.executor.project.Project
@@ -99,79 +100,10 @@ open class CompilationChecker(private val compilers: List<CommonCompiler>) {
         when {
             statuses.all { it == COMPILE_STATUS.OK } -> {
                 if (CompilerArgs.isPerformanceMode) {
-                    //-1 not interesting, 0 - ok, 1 - interesting
-                    var compilationRetValue = -1
-                    var executionRetValue = -1
-                    val compilationTimesDifferenceInPerc =
-                        kotlin.math.abs(compilationTimes.first()).toDouble() / compilationTimes.last().absoluteValue
-                    val compInterval = PerformanceOracle.compilationConfInterval.let { it.first..it.second }
-                    println("COMPILATION TIMES = $compilationTimes")
-                    println("COMPILATION TIME DIFFERENCE = $compilationTimesDifferenceInPerc")
-                    println("INTERVAL =  $compInterval")
-                    if (compilationTimesDifferenceInPerc !in compInterval) {
-                        if (compilationTimes.first() > compilationTimes.last() && compilationTimesDifferenceInPerc > compInterval.endInclusive) {
-                            val compSigma = PerformanceOracle.compilationSigma
-                            val compConfInterval = PerformanceOracle.compilationConfInterval
-                            val compTimeIntervalMedian = (compConfInterval.second + compConfInterval.first) / 2.0
-                            val newMed = compTimeIntervalMedian * 0.62  + compilationTimesDifferenceInPerc * 0.38
-                            val newInterval = newMed - compSigma to newMed + compSigma
-                            PerformanceOracle.compilationConfInterval = newInterval
-                            compilationRetValue = 1
-                        } else {
-                            compilationRetValue = -1
-                        }
-                    } else {
-                        compilationRetValue = 0
-                    }
-                    val executionTimes = mutableListOf<Long>()
-                    for (comp in compilers) {
-                        val compiled = comp.compile(project)
-                        if (compiled.status == -1) {
-                            checkedConfigurations[allTexts] = false
-                            return false
-                        }
-                        val execResult = comp.getExecutionTime(compiled.pathToCompiled)
-                        if (execResult.first.contains("Exception")) {
-                            checkedConfigurations[allTexts] = false
-                            return false
-                        }
-                        executionTimes.add(execResult.second)
-                    }
-                    val executionTimesDifferenceInPerc =
-                        kotlin.math.abs(executionTimes.first()).toDouble() / executionTimes.last().absoluteValue
-                    val execInterval = PerformanceOracle.executionConfInterval.let { it.first..it.second }
-                    println("EXECUTION TIMES = $executionTimes")
-                    println("EXECUTION TIME DIFFERENCE = $executionTimesDifferenceInPerc")
-                    println("EXEC INTERVAL =  $execInterval")
-                    if (executionTimesDifferenceInPerc !in execInterval) {
-                        if (executionTimes.first() > executionTimes.last() && executionTimesDifferenceInPerc > execInterval.endInclusive) {
-                            val execSigma = PerformanceOracle.executionSigma
-                            val execConfInterval = PerformanceOracle.executionConfInterval
-                            val executionTimeIntervalMedian = (execConfInterval.second + execConfInterval.first) / 2.0
-                            val newMed = executionTimeIntervalMedian * 0.62  + executionTimesDifferenceInPerc * 0.38
-                            val newInterval = newMed - execSigma to newMed + execSigma
-                            PerformanceOracle.executionConfInterval = newInterval
-                            executionRetValue = 1
-                        } else {
-                            executionRetValue = -1
-                        }
-                    } else {
-                        executionRetValue = 0
-                    }
-                    println("----------------------------------------------------")
-                    return when {
-                        executionRetValue == 1 || compilationRetValue == 1 -> {
-                            checkedConfigurations[allTexts] = true
-                            true
-                        }
-                        compilationRetValue == -1 || executionRetValue == -1 -> {
-                            checkedConfigurations[allTexts] = false
-                            false
-                        }
-                        else -> {
-                            checkedConfigurations[allTexts] = true
-                            true
-                        }
+                    val jvmCompilers = compilers.map {it as JVMCompiler}
+                    val results = PerformanceOracle.profileProject(project, jvmCompilers)
+                    if (results != null) {
+                       BugManager.saveBug(Bug(compilers, "", project, BugType.PERFORMANCE))
                     }
                 }
                 if (CompilerArgs.isGuidedByCoverage) {
